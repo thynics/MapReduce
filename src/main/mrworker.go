@@ -21,9 +21,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: mrworker xxx.so\n")
 		os.Exit(1)
 	}
-
+	fmt.Println("worker running")
 	mapf, reducef := loadPlugin(os.Args[1])
-
+	fmt.Println(os.Args[2], os.Args[3], os.Args[4])
 	mr.Worker(mapf, reducef, os.Args[2], os.Args[3], os.Args[4])
 }
 

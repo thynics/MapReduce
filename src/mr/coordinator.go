@@ -148,6 +148,9 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 				NReduce:  c.NReduce,
 				FileName: key,
 			}
+			// map task need to read content from coordinator locally
+			f, _ := os.ReadFile(reply.AssignedMapTask.FileName)
+			reply.AssignedMapTask.FileContent = string(f)
 		} else {
 			c.CurrentStage = StageWaitMap
 			reply.Stage = StageWaitMap

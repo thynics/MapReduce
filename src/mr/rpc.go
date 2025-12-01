@@ -33,9 +33,10 @@ const (
 )
 
 type MapTaskEntity struct {
-	MapID    int64  // 固定的 Map 编号
-	NReduce  int    // Reduce 任务数量
-	FileName string // 输入文件名
+	MapID       int64  // 固定的 Map 编号
+	NReduce     int    // Reduce 任务数量
+	FileName    string // 输入文件名
+	FileContent string // 文件内容
 }
 
 type ReduceTaskEntity struct {

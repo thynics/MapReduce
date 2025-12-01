@@ -62,7 +62,9 @@ func (w *WorkerState) step() error {
 		fmt.Printf("call failed!\n")
 		return fmt.Errorf("Coordinator.PullTask failed")
 	}
-
+	fmt.Println("call success")
+	bytes, _ := json.Marshal(reply)
+	fmt.Println(string(bytes))
 	w.mapAddrInfo = reply.MapTaskAddrInfo
 
 	w.finishedTaskID = nil
@@ -183,11 +185,7 @@ func writeFinalKVsSorted(filename string, kvs []KeyValue) error {
 }
 
 func (w *WorkerState) doMapTask(task *MapTaskEntity) {
-	data, err := os.ReadFile(task.FileName)
-	if err != nil {
-		log.Fatalf("cannot read %v: %v", task.FileName, err)
-	}
-	content := string(data)
+	content := task.FileContent
 
 	kvs := w.mapf(task.FileName, content)
 
@@ -283,6 +281,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	w.coordinatorAddr = coordinatorAddr
 	w.addr = fmt.Sprintf("%s:%s", ip, port)
 	w.server()
+	fmt.Println("start step")
 	for !w.shouldTerminate() {
 		err := w.step()
 		if err != nil {
@@ -290,6 +289,7 @@ func Worker(mapf func(string, string) []KeyValue,
 			time.Sleep(1 * time.Second)
 			w.stepFailAdd()
 		} else {
+			fmt.Println("Step success")
 			w.stepFailReset()
 		}
 	}
@@ -302,7 +302,7 @@ func (w *WorkerState) server() {
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
-	log.Println("Coordinator RPC listening on 0.0.0.0:1234")
+	log.Println("Worker RPC listening on 0.0.0.0:1234")
 	go http.Serve(l, nil)
 }
 
