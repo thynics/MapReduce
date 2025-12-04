@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,7 +30,7 @@ type Coordinator struct {
 	NMap               int
 	WorkerCount        int
 	WaitWorkerExitTime int64
-	ReadyWorkers       map[string]bool
+	ReadyWorkers       map[string]int64 // ip - last heartbeat
 
 	// Map Task, key = filename
 	MapTasks map[string]*TaskInfo
@@ -126,7 +127,7 @@ func pickTask(tasks map[string]*TaskInfo, ip, port string) (string, *TaskInfo, b
 }
 
 func (c *Coordinator) RegisterWorker(args *RegisterArgs, reply *RegisterArgs) error {
-	c.ReadyWorkers[args.IP] = true
+	c.ReadyWorkers[args.IP] = time.Now().Unix()
 	return nil
 }
 
@@ -135,6 +136,7 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	fmt.Printf("PullTask, current stage: %v\n", c.CurrentStage)
+	c.ReadyWorkers[args.IP] = time.Now().Unix()
 	reply.AssignedMapTask = nil
 	reply.AssignedReduceTask = nil
 
@@ -273,9 +275,30 @@ func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator 
 	c := Coordinator{
 		NReduce:      nReduce,
 		WorkerCount:  workerCount,
-		ReadyWorkers: make(map[string]bool, 3),
+		ReadyWorkers: make(map[string]int64, 3),
 	}
 	c.server()
 	c.startMapStage(files)
+	go func () {
+		for c.CurrentStage != StageDone {
+			// check all workers
+			hasWkerDied := false
+			for wkip, lasthb := range c.ReadyWorkers {
+				if time.Now().Unix() - lasthb > 5 {
+					// die
+					hasWkerDied = true
+					for _, task := range c.MapTasks {
+						if strings.Contains(c.MapTaskAddrInfo[int64(task.Index)], wkip) {
+							task.Status = TaskStatusIdle
+						}
+					}
+				}
+			}
+			if hasWkerDied {
+				c.CurrentStage = StageMap
+			}
+			time.Sleep(time.Millisecond * 300)
+		}
+	}()
 	return &c
 }

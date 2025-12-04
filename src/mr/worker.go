@@ -36,7 +36,7 @@ type WorkerState struct {
 	coordinatorAddr string
 }
 
-const stepRetryLimit = 3
+const stepRetryLimit = 5
 
 func newWorker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) *WorkerState {
@@ -75,7 +75,7 @@ func (w *WorkerState) step() error {
 		}
 	case StageReduce:
 		if reply.AssignedReduceTask != nil {
-			w.doReduceTask(reply.AssignedReduceTask)
+			return w.doReduceTask(reply.AssignedReduceTask)
 		} else {
 			w.doNothing()
 		}
@@ -144,7 +144,11 @@ func (w *WorkerState) readKVsFromFile(mapID int64, reduceID int64) ([]KeyValue, 
 	args.MapID = mapID
 	args.ReduceID = reduceID
 	reply := new(ReadIntermediateFileContentReply)
-	_ = call(addr, "WorkerState.ReadIntermediateFileContent", args, reply)
+	ok = call(addr, "WorkerState.ReadIntermediateFileContent", args, reply)
+	if !ok {
+		fmt.Println("Get file from other worker fail")
+		return nil, fmt.Errorf("get file from other worker fail")
+	}
 	if reply != nil && len(reply.Content) != 0 {
 		return decodeKVsFromString(reply.Content)
 	}
@@ -207,13 +211,13 @@ func (w *WorkerState) doMapTask(task *MapTaskEntity) {
 // 2. reduce values by key
 // 3. call reducef per key
 // 4. write final result to mr-out-ReduceID
-func (w *WorkerState) doReduceTask(task *ReduceTaskEntity) {
+func (w *WorkerState) doReduceTask(task *ReduceTaskEntity) error {
 	kvsByKey := make(map[string][]string)
 
 	for i := 0; i < task.MapCount; i++ {
 		kvs, err := w.readKVsFromFile(int64(i), task.ReduceID)
 		if err != nil {
-			continue
+			return err
 		}
 		for _, kv := range kvs {
 			kvsByKey[kv.Key] = append(kvsByKey[kv.Key], kv.Value)
@@ -233,6 +237,7 @@ func (w *WorkerState) doReduceTask(task *ReduceTaskEntity) {
 
 	key := strconv.Itoa(int(task.ReduceID))
 	w.finishedTaskID = &key
+	return nil
 }
 
 func (w *WorkerState) terminate() {
@@ -285,7 +290,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		err := w.step()
 		if err != nil {
 			fmt.Println("Step failed, retrying...")
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			w.stepFailAdd()
 		} else {
 			w.stepFailReset()
