@@ -88,6 +88,7 @@ func (w *WorkerState) step() error {
 }
 
 func writeKVsToFile(filename string, kvs []KeyValue) error {
+	fmt.Printf("Writing to %s...\n", filename)
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -161,6 +162,7 @@ func (w *WorkerState) ReadIntermediateFileContent(args *ReadIntermediateFileCont
 }
 
 func writeFinalKVsSorted(filename string, kvs []KeyValue) error {
+	fmt.Printf("Writing result to %s...\n", filename)
 	sort.Slice(kvs, func(i, j int) bool {
 		return kvs[i].Key < kvs[j].Key
 	})
