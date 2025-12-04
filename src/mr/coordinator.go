@@ -181,6 +181,15 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 			c.CurrentStage = StageWaitWorkerExit
 			reply.Stage = StageWaitWorkerExit
 			c.WaitWorkerExitTime = time.Now().Unix()
+			go func () {
+				for len(c.ReadyWorkers) != 0 {
+					time.Sleep(time.Second)
+					if time.Now().Unix() - c.WaitWorkerExitTime > 10 {
+						fmt.Println("Timeout!")
+						c.CurrentStage = StageDone
+					}
+				}
+			}()
 			return nil
 		}
 
@@ -200,8 +209,7 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 	case StageWaitWorkerExit:
 		delete(c.ReadyWorkers, args.IP)
 		fmt.Printf("IP: %s\n", args.IP)
-		if len(c.ReadyWorkers) == 0 || 
-			time.Now().Unix() - c.WaitWorkerExitTime > 10 {
+		if len(c.ReadyWorkers) == 0 {
 			fmt.Println("All workers exit")
 			c.CurrentStage = StageDone
 		}
