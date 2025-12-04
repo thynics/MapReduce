@@ -250,8 +250,7 @@ func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator 
 		NReduce:     nReduce,
 		WorkerCount: workerCount,
 	}
-
-	c.startMapStage(files)
 	c.server()
+	c.startMapStage(files)
 	return &c
 }
