@@ -25,10 +25,11 @@ type Coordinator struct {
 
 	CurrentStage Stage
 
-	NReduce      int
-	NMap         int
-	WorkerCount  int
-	ReadyWorkers map[string]bool
+	NReduce            int
+	NMap               int
+	WorkerCount        int
+	WaitWorkerExitTime int64
+	ReadyWorkers       map[string]bool
 
 	// Map Task, key = filename
 	MapTasks map[string]*TaskInfo
@@ -177,8 +178,9 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 
 	case StageReduce, StageWaitReduce:
 		if allTasksDone(c.ReduceTasks) {
-			c.CurrentStage = StageDone
-			reply.Stage = StageDone
+			c.CurrentStage = StageWaitWorkerExit
+			reply.Stage = StageWaitWorkerExit
+			c.WaitWorkerExitTime = time.Now().Unix()
 			return nil
 		}
 
@@ -195,6 +197,15 @@ func (c *Coordinator) PullTask(args *PullTaskArgs, reply *PullTaskReply) error {
 			reply.Stage = StageWaitReduce
 		}
 
+	case StageWaitWorkerExit:
+		delete(c.ReadyWorkers, args.IP)
+		fmt.Printf("IP: %s\n", args.IP)
+		if len(c.ReadyWorkers) == 0 || 
+			time.Now().Unix() - c.WaitWorkerExitTime > 10 {
+			fmt.Println("All workers exit")
+			c.CurrentStage = StageDone
+		}
+		reply.Stage = StageDone
 	case StageDone:
 		reply.Stage = StageDone
 
@@ -243,6 +254,7 @@ func (c *Coordinator) server() {
 func (c *Coordinator) Done() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.CurrentStage == StageDone
 }
 
@@ -251,8 +263,8 @@ func (c *Coordinator) Done() bool {
 // nReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator {
 	c := Coordinator{
-		NReduce:     nReduce,
-		WorkerCount: workerCount,
+		NReduce:      nReduce,
+		WorkerCount:  workerCount,
 		ReadyWorkers: make(map[string]bool, 3),
 	}
 	c.server()

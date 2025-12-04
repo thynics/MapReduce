@@ -21,6 +21,7 @@ const (
 	StageWaitMap
 	StageReduce
 	StageWaitReduce
+	StageWaitWorkerExit
 	StageDone
 )
 
