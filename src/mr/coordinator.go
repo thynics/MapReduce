@@ -47,7 +47,7 @@ func (c *Coordinator) startMapStage(files []string) {
 		fmt.Printf("Waiting for all workers ready, current: %d, expected: %d\n", len(c.ReadyWorkers), c.WorkerCount)
 		time.Sleep(1 * time.Second)
 	}
-	fmt.Printf("All workers are ready")
+	fmt.Println("All workers are ready")
 	c.CurrentStage = StageMap
 	c.NMap = len(files)
 	c.MapTasks = make(map[string]*TaskInfo)
