@@ -249,6 +249,7 @@ func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator 
 	c := Coordinator{
 		NReduce:     nReduce,
 		WorkerCount: workerCount,
+		ReadyWorkers: make(map[string]bool, 3),
 	}
 	c.server()
 	c.startMapStage(files)
