@@ -58,6 +58,7 @@ func (c *Coordinator) startMapStage(files []string) {
 			Index:  idx, // as map id
 		}
 	}
+	fmt.Println("Map stage start!")
 }
 
 // startReduceStage start reduce stage, all map task done
@@ -77,6 +78,7 @@ func (c *Coordinator) startReduceStage() {
 	for _, task := range c.MapTasks {
 		c.MapTaskAddrInfo[int64(task.Index)] = fmt.Sprintf("%s:%s", task.IP, task.Port)
 	}
+	fmt.Println("Reduce stage start!")
 }
 
 // allTasksDone all tasks are marked as done by workers
@@ -89,6 +91,7 @@ func allTasksDone(tasks map[string]*TaskInfo) bool {
 			return false
 		}
 	}
+	fmt.Println("All tasks are done!")
 	return true
 }
 
