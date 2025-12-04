@@ -9,18 +9,22 @@ package main
 // Please do not change this file.
 //
 
-import "6.5840/mr"
-import "time"
-import "os"
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+
+	"6.5840/mr"
+)
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: mrcoordinator inputfiles...\n")
 		os.Exit(1)
 	}
-
-	m := mr.MakeCoordinator(os.Args[1:], 10)
+	workerCount, _ := strconv.Atoi(os.Args[1])
+	m := mr.MakeCoordinator(os.Args[2:], 10, workerCount)
 	for m.Done() == false {
 		time.Sleep(time.Second)
 	}

@@ -25,8 +25,10 @@ type Coordinator struct {
 
 	CurrentStage Stage
 
-	NReduce int
-	NMap    int
+	NReduce      int
+	NMap         int
+	WorkerCount  int
+	ReadyWorkers map[string]bool
 
 	// Map Task, key = filename
 	MapTasks map[string]*TaskInfo
@@ -41,6 +43,10 @@ const taskTimeout = 10 * time.Second
 
 // startMapStage start map stage
 func (c *Coordinator) startMapStage(files []string) {
+	for len(c.ReadyWorkers) != c.WorkerCount {
+		fmt.Printf("Waiting for all workers ready, current: %d, expected: %d\n", len(c.ReadyWorkers), c.WorkerCount)
+		time.Sleep(1 * time.Second)
+	}
 	c.CurrentStage = StageMap
 	c.NMap = len(files)
 	c.MapTasks = make(map[string]*TaskInfo)
@@ -95,6 +101,8 @@ func pickTask(tasks map[string]*TaskInfo, ip, port string) (string, *TaskInfo, b
 		if t.Status == TaskStatusIdle {
 			t.Status = TaskStatusRunning
 			t.AssignedAt = now
+			t.IP = ip
+			t.Port = port
 			return k, t, true
 		}
 	}
@@ -103,11 +111,18 @@ func pickTask(tasks map[string]*TaskInfo, ip, port string) (string, *TaskInfo, b
 		if t.Status == TaskStatusRunning && now.Sub(t.AssignedAt) > taskTimeout {
 			// re-schedule
 			t.AssignedAt = now
+			t.IP = ip
+			t.Port = port
 			return k, t, true
 		}
 	}
 
 	return "", nil, false
+}
+
+func (c *Coordinator) RegisterWorker(args *RegisterArgs, reply *RegisterArgs) error {
+	c.ReadyWorkers[args.IP] = true
+	return nil
 }
 
 // PullTask RPC call of WorkerState, pull task && submit task result
@@ -230,9 +245,10 @@ func (c *Coordinator) Done() bool {
 // create a Coordinator.
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
-func MakeCoordinator(files []string, nReduce int) *Coordinator {
+func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator {
 	c := Coordinator{
-		NReduce: nReduce,
+		NReduce:     nReduce,
+		WorkerCount: workerCount,
 	}
 
 	c.startMapStage(files)

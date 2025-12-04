@@ -33,15 +33,15 @@ const (
 )
 
 type MapTaskEntity struct {
-	MapID       int64  // 固定的 Map 编号
-	NReduce     int    // Reduce 任务数量
-	FileName    string // 输入文件名
-	FileContent string // 文件内容
+	MapID       int64
+	NReduce     int
+	FileName    string
+	FileContent string
 }
 
 type ReduceTaskEntity struct {
-	MapCount int   // Map 任务数
-	ReduceID int64 // 固定的 Reduce 编号
+	MapCount int
+	ReduceID int64
 }
 
 type PullTaskArgs struct {
@@ -64,6 +64,14 @@ type ReadIntermediateFileContentArgs struct {
 
 type ReadIntermediateFileContentReply struct {
 	Content string
+}
+
+type RegisterArgs struct {
+	IP string
+}
+
+type RegisterReply struct {
+	
 }
 
 // Cook up a unique-ish UNIX-domain socket name

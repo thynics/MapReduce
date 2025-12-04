@@ -62,9 +62,6 @@ func (w *WorkerState) step() error {
 		fmt.Printf("call failed!\n")
 		return fmt.Errorf("Coordinator.PullTask failed")
 	}
-	fmt.Println("call success")
-	bytes, _ := json.Marshal(reply)
-	fmt.Println(string(bytes))
 	w.mapAddrInfo = reply.MapTaskAddrInfo
 
 	w.finishedTaskID = nil
@@ -131,7 +128,6 @@ func decodeKVsFromString(content string) ([]KeyValue, error) {
 	return kvs, nil
 }
 
-// 控制本worker读中间文件
 func (w *WorkerState) readKVsFromFile(mapID int64, reduceID int64) ([]KeyValue, error) {
 	addr, ok := w.mapAddrInfo[mapID]
 	if !ok {
@@ -154,7 +150,6 @@ func (w *WorkerState) readKVsFromFile(mapID int64, reduceID int64) ([]KeyValue, 
 	return nil, fmt.Errorf("files not found")
 }
 
-// PRC Method，支持其它worker读本worker
 func (w *WorkerState) ReadIntermediateFileContent(args *ReadIntermediateFileContentArgs, reply *ReadIntermediateFileContentReply) error {
 	filename := fmt.Sprintf("mr-%d-%d", args.MapID, args.ReduceID)
 	b, err := os.ReadFile(filename)
@@ -281,7 +276,9 @@ func Worker(mapf func(string, string) []KeyValue,
 	w.coordinatorAddr = coordinatorAddr
 	w.addr = fmt.Sprintf("%s:%s", ip, port)
 	w.server()
-	fmt.Println("start step")
+
+	call(w.coordinatorAddr, "RegisterWorker", &RegisterArgs{IP: w.ip}, &RegisterReply{})
+
 	for !w.shouldTerminate() {
 		err := w.step()
 		if err != nil {
@@ -289,9 +286,10 @@ func Worker(mapf func(string, string) []KeyValue,
 			time.Sleep(1 * time.Second)
 			w.stepFailAdd()
 		} else {
-			fmt.Println("Step success")
 			w.stepFailReset()
 		}
+		fmt.Println("Step...")
+		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -338,15 +336,22 @@ func call(addr, rpcname string, args interface{}, reply interface{}) bool {
 	}
 	defer c.Close()
 
-	if err := c.Call(rpcname, args, reply); err != nil {
-		log.Printf("rpc call %s error: %v\n", rpcname, err)
+	done := make(chan error, 1)
+
+	go func() {
+		done <- c.Call(rpcname, args, reply)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			log.Printf("rpc call %s error: %v\n", rpcname, err)
+			return false
+		}
+		return true
+
+	case <-time.After(3 * time.Second):
+		log.Printf("rpc call %s timeout (>= 3000ms)\n", rpcname)
 		return false
 	}
-	return true
 }
-
-// How to read intermediate file
-// 1. worker - ip:port (mesh), Coordinator::RegisterWorker(ip+port)
-
-// map_id - (ip+port)
-// 2.
