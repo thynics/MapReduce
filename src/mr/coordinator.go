@@ -282,20 +282,27 @@ func MakeCoordinator(files []string, nReduce int, workerCount int) *Coordinator 
 	go func () {
 		for c.CurrentStage != StageDone {
 			// check all workers
-			hasWkerDied := false
+			diedWks := make([]string, 0, 0)
 			for wkip, lasthb := range c.ReadyWorkers {
 				if time.Now().Unix() - lasthb > 5 {
-					// die
-					hasWkerDied = true
+					diedWks = append(diedWks, wkip)
+				}
+			}
+
+			if len(diedWks) > 0 {
+				c.mu.Lock()
+				fmt.Println("Worker died, reset to Map Stage")
+				for _, diedIP := range diedWks {
+					delete(c.ReadyWorkers, diedIP)
 					for _, task := range c.MapTasks {
-						if strings.Contains(c.MapTaskAddrInfo[int64(task.Index)], wkip) {
+						if strings.Contains(c.MapTaskAddrInfo[int64(task.Index)], diedIP) {
 							task.Status = TaskStatusIdle
+							delete(c.MapTaskAddrInfo, int64(task.Index))
 						}
 					}
 				}
-			}
-			if hasWkerDied {
 				c.CurrentStage = StageMap
+				c.mu.Unlock()
 			}
 			time.Sleep(time.Millisecond * 300)
 		}
