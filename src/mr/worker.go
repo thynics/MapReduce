@@ -277,7 +277,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	w.addr = fmt.Sprintf("%s:%s", ip, port)
 	w.server()
 
-	call(w.coordinatorAddr, "RegisterWorker", &RegisterArgs{IP: w.ip}, &RegisterReply{})
+	call(w.coordinatorAddr, "Coordinator.RegisterWorker", &RegisterArgs{IP: w.ip}, &RegisterReply{})
 
 	for !w.shouldTerminate() {
 		err := w.step()
